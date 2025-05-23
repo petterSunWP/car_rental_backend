@@ -17,7 +17,10 @@ Including another URLconf
 from django.urls import path
 
 from . import views
+# 在 views.py 中
+from service import loginViews
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path("login/", loginViews.login_api, name="login")
 ]
