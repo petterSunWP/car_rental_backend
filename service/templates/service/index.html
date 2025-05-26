@@ -48,7 +48,9 @@
               </a>              
           </li>
           <li class="nav-item">
-            <a class="btn btn-light btn-sm" href="/register/">Register</a>
+            <a class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#registerModal">
+                Register
+              </a>
           </li>
         </ul>
       </div>
@@ -87,6 +89,9 @@
                   <p><strong>Daily Rental Price:</strong> ${{ car.daily_rental_price }}</p>
                 </div>
                 <div class="modal-footer">
+                    <button class="btn btn-success" onclick="handleBooking({{ car.id }},{{car.daily_rental_price}})">
+                        Book Now
+                      </button>
                   <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
               </div>
@@ -121,30 +126,110 @@
             <input type="password" id="password" class="form-control rounded-pill px-3 py-2" />
           </div>
           <div id="login-error" class="alert alert-danger d-none">
-            Login failed. Please check your credentials or <a href="/register/">register here</a>.
+            Login failed. Please check your credentials or <a href="#" class="text-primary text-decoration-underline" data-bs-toggle="modal" data-bs-target="#registerModal">
+                Register here
+              </a>
           </div>
           <button id="login-btn" class="btn btn-primary w-100 rounded-pill">Login</button>
         </div>
   
         <div class="modal-footer justify-content-center border-0 bg-light">
-          <p class="mb-0">Don't have an account? <a href="/register/">Register</a></p>
+          Don't have an account? <a href="#" class="text-primary text-decoration-underline" data-bs-toggle="modal" data-bs-target="#registerModal">
+            Register
+          </a>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Register Modal -->
+<div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow-sm border-0" style="border-radius: 12px;">
+        <div class="modal-header bg-white border-0">
+          <h5 class="modal-title" id="registerModalLabel">Register</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
   
+        <div class="modal-body px-4">
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" id="reg-username" class="form-control" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" id="reg-email" class="form-control" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" id="reg-password" class="form-control" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Role</label>
+            <select id="reg-role" class="form-select">
+              <option value="Customer" selected>Customer</option>
+            </select>
+          </div>
+  
+          <div id="register-error" class="alert alert-danger d-none"></div>
+  
+          <button id="register-btn" class="btn btn-primary w-100">Register</button>
+        </div>
+  
+        <div class="modal-footer justify-content-center border-0 bg-light">
+          <p class="mb-0">Already have an account? <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" data-bs-dismiss="modal">Login here</a></p>
+        </div>
+      </div>
+    </div>
+  </div>  
+  <!-- Booking Modal -->
+<div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content shadow-sm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="bookingModalLabel">Book This Car</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+  
+        <div class="modal-body">
+          <input type="hidden" id="bookingCarId" />
+          <div class="mb-3">
+            <label for="startDate" class="form-label">Start Date</label>
+            <input type="date" class="form-control" id="startDate" required />
+          </div>
+          <div class="mb-3">
+            <label for="endDate" class="form-label">End Date</label>
+            <input type="date" class="form-control" id="endDate" required />
+          </div>
+  
+          <div class="alert alert-info d-none" id="bookingPriceInfo"></div>
+          <!-- 价格显示区域 -->
+        <div class="alert alert-light border" id="bookingPriceInfo">
+            <p class="mb-1" id="dailyRateText"></p>
+            <p class="mb-1" id="rentalPeriodText"></p>
+            <strong id="totalPriceText"></strong>
+        </div>
+  
+  
+          <button class="btn btn-primary w-100" onclick="submitBooking()">Confirm Booking</button>
+        </div>
+      </div>
+    </div>
+  </div>
   
   </body>
   
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        //login
         document.getElementById("login-btn").addEventListener("click", async () => {
           const username = document.getElementById("username").value.trim();
           const password = document.getElementById("password").value.trim();
           const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-      
-          const response = await fetch("/login/", {
+          const loginUrl = "{% url 'login' %}";
+          console.log(loginUrl)
+          const response = await fetch(loginUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -163,6 +248,173 @@
             document.getElementById("login-error").classList.remove("d-none");
           }
         });
-      </script>
+        //register
+        document.getElementById('register-btn').addEventListener('click', async () => {
+  const username = document.getElementById('reg-username').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value.trim();
+  const role = document.getElementById('reg-role').value;
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+  const errorDiv = document.getElementById("register-error");
+
+  // ✅ 清空错误提示
+  errorDiv.classList.add("d-none");
+  errorDiv.textContent = "";
+
+  // ✅ 前端验证
+  if (username.length < 3) {
+    errorDiv.textContent = "Username must be at least 3 characters.";
+    errorDiv.classList.remove("d-none");
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    errorDiv.textContent = "Please enter a valid email address.";
+    errorDiv.classList.remove("d-none");
+    return;
+  }
+
+  if (password.length < 6) {
+    errorDiv.textContent = "Password must be at least 6 characters.";
+    errorDiv.classList.remove("d-none");
+    return;
+  }
+
+  // ✅ 通过验证，发送请求
+  const res = await fetch("{% url 'register' %}", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": csrfToken
+    },
+    body: JSON.stringify({ username, email, password, role })
+  });
+
+  const data = await res.json();
+
+  if (data.success) {
+    alert("Registration successful!");
+    window.location.reload();
+  } else {
+    errorDiv.textContent = data.error || "Registration failed.";
+    errorDiv.classList.remove("d-none");
+  }
+});
+
+//booking
+async function handleBooking(carId,dailyPrice) {
+    try {
+      const res = await fetch("{% url 'checkAuth' %}");
+      const data = await res.json();
+      const carModal = bootstrap.Modal.getInstance(document.querySelector(`#carModal${carId}`));
+        carModal.hide();
+      if (data.is_authenticated) {
+        // ✅ 已登录，跳转或打开 booking 流程
+        openBookingModal(carId,dailyPrice)
+      } else {
+        // ❌ 未登录，先关闭 carModal
+       
+
+        // ✨ 简单提示用户登录（可改成 toast）
+        setTimeout(() => {
+          alert("Please login to continue booking.");
+
+          // 然后显示登录模态框
+          const loginModal = new bootstrap.Modal(document.getElementById("loginModal"));
+          loginModal.show();
+        }, 300); // 稍作延迟以避免动画冲突
+      }
+    } catch (error) {
+      console.error("Login check failed", error);
+      alert("Something went wrong. Please try again.");
+    }
+  }
+
+  function openBookingModal(carId, dailyPrice) {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 0);
+
+  const todayStr = today.toISOString().split("T")[0];
+  const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+  // 设置日期值和限制
+  const startInput = document.getElementById("startDate");
+  const endInput = document.getElementById("endDate");
+
+  startInput.min = todayStr;
+  startInput.value = todayStr;
+
+  endInput.min = todayStr;
+  endInput.value = tomorrowStr;
+
+  // 存储 car id 和价格
+  document.getElementById("bookingCarId").value = carId;
+  document.getElementById("bookingModal").dataset.dailyPrice = dailyPrice;
+
+  // 设置监听器
+  startInput.onchange = calculatePrice;
+  endInput.onchange = calculatePrice;
+
+  // ✅ 初次加载时立即计算价格
+  calculatePrice();
+
+  // 打开模态框
+  const modal = new bootstrap.Modal(document.getElementById("bookingModal"));
+  modal.show();
+}
+
+
+  function calculatePrice() {
+  const startInput = document.getElementById("startDate").value;
+  const endInput = document.getElementById("endDate").value;
+
+  const start = new Date(startInput);
+  const end = new Date(endInput);
+  const pricePerDay = parseFloat(document.getElementById("bookingModal").dataset.dailyPrice);
+
+  const dailyRateText = document.getElementById("dailyRateText");
+  const rentalPeriodText = document.getElementById("rentalPeriodText");
+  const totalPriceText = document.getElementById("totalPriceText");
+
+  if (end >= start) {
+    const days = (end - start) / (1000 * 60 * 60 * 24) + 1;
+    const total = (days * pricePerDay).toFixed(2);
+
+    dailyRateText.textContent = `Daily Price: $${pricePerDay.toFixed(2)}`;
+    rentalPeriodText.textContent = `Rental Period: ${startInput} to ${endInput}`;
+    totalPriceText.textContent = `Total Price: $${total} (${days} days)`;
+  } else {
+    dailyRateText.textContent = '';
+    rentalPeriodText.textContent = '';
+    totalPriceText.textContent = '';
+  }
+}
+
+
+  async function submitBooking() {
+    const carId = document.getElementById("bookingCarId").value;
+    const startDate = document.getElementById("startDate").value;
+    const endDate = document.getElementById("endDate").value;
+
+    const res = await fetch(`/book/${carId}/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")?.value,
+      },
+      body: JSON.stringify({ start_date: startDate, end_date: endDate }),
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      alert("Booking confirmed!");
+      window.location.reload();
+    } else {
+      alert("Booking failed: " + (data.error || "Unknown error."));
+    }
+  }
+</script>
       
 </html>

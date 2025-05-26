@@ -22,5 +22,8 @@ from service import loginViews
 
 urlpatterns = [
     path("", views.index, name="index"),
-    path("login/", loginViews.login_api, name="login")
+    path("login/", loginViews.login_api, name="login"),
+    path("register/", loginViews.register_api, name="register"),
+    path("checkAuth/", loginViews.check_auth, name="checkAuth")
+
 ]

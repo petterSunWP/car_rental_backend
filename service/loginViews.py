@@ -1,21 +1,62 @@
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
-from django.contrib.auth import authenticate, login
 import json
+from service.models import User
+from django.contrib.auth.hashers import make_password
+# views/auth_views.py
+
+from django.contrib.auth import login
+from django.contrib.auth.backends import ModelBackend
+from django.contrib.auth.hashers import check_password
 
 @csrf_exempt
 def login_api(request):
     if request.method == "POST":
+        data = json.loads(request.body)
+        username = data.get("username")
+        password = data.get("password")
+        print(username,password)
         try:
-            data = json.loads(request.body)
-            username = data.get("username")
-            password = data.get("password")
-        except:
-            return JsonResponse({"success": False, "error": "Invalid input"}, status=400)
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Invalid username or password"}, status=401)
 
-        user = authenticate(request, username=username, password=password)
-        if user:
-            login(request, user)
+        if check_password(password, user.password):
+            # Django 的 login 只支持 auth.User，所以你不能用 login() —— 建议用 session 处理登录
+            request.session["user_id"] = user.id
+            request.session["username"] = user.username
+            request.session["role"] = user.role
             return JsonResponse({"success": True})
         else:
-            return JsonResponse({"success": False}, status=401)
+            return JsonResponse({"success": False, "error": "Invalid username or password"}, status=401)
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def register_api(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        username = data.get("username")
+        email = data.get("email")
+        password = data.get("password")
+        role = data.get("role", "Customer")
+
+        if User.objects.filter(username=username).exists():
+            return JsonResponse({"success": False, "error": "Username already taken"}, status=400)
+        if User.objects.filter(email=email).exists():
+            return JsonResponse({"success": False, "error": "Email already in use"}, status=400)
+
+        user = User.objects.create(
+            username=username,
+            email=email,
+            password=make_password(password),  # 加密密码
+            role=role
+        )
+
+        return JsonResponse({"success": True, "user_id": user.id})
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+def check_auth(request):
+    is_logged_in = bool(request.session.get("user_id"))
+    return JsonResponse({"is_authenticated": is_logged_in})
