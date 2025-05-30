@@ -24,7 +24,7 @@ class Booking(models.Model):
     car_id = models.IntegerField() 
     start_date = models.DateField()
     end_date = models.DateField()
-    status = models.CharField(max_length=20, choices=[("Pending", "Pending"), ("Approved", "Approved"), ("Rejected", "Rejected")])
+    status = models.CharField(max_length=20, choices=[("Pending", "Pending"), ("Approved", "Approved"), ("Rejected", "Rejected"), ("Cancelled", "Cancelled") ])
     total_cost = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -33,7 +33,7 @@ class Payment(models.Model):
     booking_id = models.IntegerField()
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_method = models.CharField(max_length=20)
-    status = models.CharField(max_length=20, choices=[("Paid", "Paid"), ("Pending", "Pending"), ("Failed", "Failed")])
+    status = models.CharField(max_length=20, choices=[("Paid", "Paid"), ("Pending", "Pending"), ("Failed", "Failed"),("Refunded", "Refunded")])
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -41,4 +41,4 @@ class Invoice(models.Model):
     booking = models.OneToOneField(Booking, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     issued_at = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, choices=[("Issued", "Issued"), ("Paid", "Paid")])
+    status = models.CharField(max_length=20, choices=[("Issued", "Issued"), ("Paid", "Paid"),(("Voided", "Voided"))])

@@ -42,6 +42,16 @@
       <!-- 右侧内容 -->
       <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
         <ul class="navbar-nav">
+            {% if request.session.user_id %}
+            <li class="nav-item me-2">
+                <a href="/service/orders/" class="btn btn-outline-light btn-sm">
+                  My Orders
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="{% url 'logout' %}" class="btn btn-light btn-sm">Logout</a>
+              </li>
+              {% else %}
           <li class="nav-item me-2">
             <a class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#loginModal">
                 Login
@@ -52,6 +62,7 @@
                 Register
               </a>
           </li>
+          {% endif %}
         </ul>
       </div>
     </div>
@@ -331,66 +342,76 @@ async function handleBooking(carId,dailyPrice) {
     }
   }
 
-  function openBookingModal(carId, dailyPrice) {
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 0);
+async function openBookingModal(carId, dailyPrice) {
+  const modal = new bootstrap.Modal(document.getElementById("bookingModal"));
+  const today = new Date().toISOString().split('T')[0];
 
-  const todayStr = today.toISOString().split("T")[0];
-  const tomorrowStr = tomorrow.toISOString().split("T")[0];
-
-  // 设置日期值和限制
-  const startInput = document.getElementById("startDate");
-  const endInput = document.getElementById("endDate");
-
-  startInput.min = todayStr;
-  startInput.value = todayStr;
-
-  endInput.min = todayStr;
-  endInput.value = tomorrowStr;
-
-  // 存储 car id 和价格
   document.getElementById("bookingCarId").value = carId;
   document.getElementById("bookingModal").dataset.dailyPrice = dailyPrice;
+  document.getElementById("startDate").value = today;
+  document.getElementById("startDate").min = today;
+  document.getElementById("endDate").value = today;
+  document.getElementById("endDate").min = today;
 
-  // 设置监听器
-  startInput.onchange = calculatePrice;
-  endInput.onchange = calculatePrice;
+  // 绑定计算价格
+  document.getElementById("startDate").onchange = calculatePrice;
+  document.getElementById("endDate").onchange = calculatePrice;
 
-  // ✅ 初次加载时立即计算价格
-  calculatePrice();
+  // ✅ 获取不可用日期并存储
+  const res = await fetch(`/service/booked-dates/${carId}/`);
+  const data = await res.json();
+  window.bookedDates = new Set(data.booked_dates);
 
-  // 打开模态框
-  const modal = new bootstrap.Modal(document.getElementById("bookingModal"));
+  // 添加校验逻辑
+  calculatePrice(); // 默认计算一次
   modal.show();
 }
 
 
-  function calculatePrice() {
-  const startInput = document.getElementById("startDate").value;
-  const endInput = document.getElementById("endDate").value;
+function calculatePrice() {
+  const startInput = document.getElementById("startDate");
+  const endInput = document.getElementById("endDate");
+  const price = parseFloat(document.getElementById("bookingModal").dataset.dailyPrice);
 
-  const start = new Date(startInput);
-  const end = new Date(endInput);
-  const pricePerDay = parseFloat(document.getElementById("bookingModal").dataset.dailyPrice);
+  const startDate = new Date(startInput.value);
+  const endDate = new Date(endInput.value);
+  const bookedDates = window.bookedDates || new Set();
 
   const dailyRateText = document.getElementById("dailyRateText");
   const rentalPeriodText = document.getElementById("rentalPeriodText");
   const totalPriceText = document.getElementById("totalPriceText");
 
-  if (end >= start) {
-    const days = (end - start) / (1000 * 60 * 60 * 24) + 1;
-    const total = (days * pricePerDay).toFixed(2);
-
-    dailyRateText.textContent = `Daily Price: $${pricePerDay.toFixed(2)}`;
-    rentalPeriodText.textContent = `Rental Period: ${startInput} to ${endInput}`;
-    totalPriceText.textContent = `Total Price: $${total} (${days} days)`;
-  } else {
+  if (endDate < startDate) {
     dailyRateText.textContent = '';
     rentalPeriodText.textContent = '';
-    totalPriceText.textContent = '';
+    totalPriceText.innerHTML = '<span class="text-danger">❌ End date must be after or same as start date.</span>';
+    return;
+  }
+
+  const invalidDates = [];
+  const days = [];
+
+  let current = new Date(startDate);
+  while (current <= endDate) {
+    const dateStr = current.toISOString().split("T")[0];
+    if (bookedDates.has(dateStr)) {
+      invalidDates.push(dateStr);
+    } else {
+      days.push(new Date(current));
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  if (invalidDates.length > 0) {
+    totalPriceText.innerHTML = `❌ Cannot book: <br><b>${invalidDates.join(", ")}</b> already taken`;
+  } else {
+    const total = (days.length * price).toFixed(2);
+    dailyRateText.textContent = `Daily Price: $${price.toFixed(2)}`;
+    rentalPeriodText.textContent = `Rental Period: ${startInput.value} to ${endInput.value}`;
+    totalPriceText.textContent = `✅ Total Price: $${total} (${days.length} days)`;
   }
 }
+
 
 
   async function submitBooking() {
@@ -398,7 +419,7 @@ async function handleBooking(carId,dailyPrice) {
     const startDate = document.getElementById("startDate").value;
     const endDate = document.getElementById("endDate").value;
 
-    const res = await fetch(`/book/${carId}/`, {
+    const res = await fetch(`/service/booking/${carId}/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

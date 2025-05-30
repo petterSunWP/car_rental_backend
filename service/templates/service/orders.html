@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <title>My Orders</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<!-- ✅ 顶部导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand" href="#">Car Rental</a>
+    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a href="javascript:history.back()" class="btn btn-outline-light btn-sm">Go Back</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- ✅ 页面内容 -->
+<div class="container mt-4">
+    <h3 class="mb-4">My Orders</h3>
+    {% if bookings %}
+      <div class="row g-3">
+        {% for booking in bookings %}
+          <div class="card mb-3 shadow-sm">
+            <div class="card-body">
+              <h5>{{ booking.car.make }} {{ booking.car.model }} ({{ booking.car.year }})</h5>
+              <p>
+                <strong>Rental Period:</strong> {{ booking.start_date }} → {{ booking.end_date }}<br>
+                <strong>Status:</strong> {{ booking.status }}<br>
+                <strong>Total:</strong> ${{ booking.total_cost }}
+              </p>
+  
+              <!-- ✅ 状态 + 操作按钮区域 -->
+              {% if booking.is_past %}
+                {% if booking.status == "Approved" %}
+                  {% if booking.payment %}
+                    <span class="badge bg-success">Paid</span>
+                  {% else %}
+                    <a href="#" onclick="confirmAction('pay', {{ booking.id }})" class="btn btn-success btn-sm">Pay Now</a>
+                  {% endif %}
+                {% elif booking.status == "Pending" %}
+                  <span class="badge bg-secondary">Unapproved (Expired)</span>
+                {% elif booking.status == "Cancelled" %}
+                  <span class="badge bg-warning text-dark">Cancelled by User</span>
+                {% elif booking.status == "Rejected" %}
+                  <span class="badge bg-danger">Rejected by Admin</span>
+                {% endif %}
+              {% else %}
+                {% if booking.status == "Pending" %}
+                  <span class="badge bg-warning text-dark">Pending</span>
+                  <a href="#" onclick="confirmAction('cancel', {{ booking.id }})" class="btn btn-outline-danger btn-sm">Cancel Order</a>
+                {% elif booking.status == "Approved" %}
+                  {% if booking.payment %}
+                    <span class="badge bg-success">Paid</span>
+                  {% else %}
+                    <a href="#" onclick="confirmAction('pay', {{ booking.id }})" class="btn btn-success btn-sm">Pay Now</a>
+                  {% endif %}
+                  <a href="#" onclick="confirmAction('cancel', {{ booking.id }})" class="btn btn-outline-danger btn-sm">Cancel Order</a>
+                {% elif booking.status == "Cancelled" %}
+                  <span class="badge bg-warning text-dark">Cancelled by User</span>
+                {% elif booking.status == "Rejected" %}
+                  <span class="badge bg-danger">Rejected by Admin</span>
+                {% endif %}
+              {% endif %}
+  
+              <!-- ✅ 发票下载按钮：仅在付款已完成且状态为 Approved 时可见 -->
+              {% if booking.payment and booking.invoice and booking.invoice.status == "Issued" and booking.status == "Approved" %}
+                <a href="{% url 'download_invoice' booking.invoice.id %}" class="btn btn-outline-primary btn-sm mt-2">
+                  Download Invoice
+                </a>
+              {% endif %}
+  
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-info">You have no bookings yet.</div>
+    {% endif %}
+  </div>
+  
+<!-- Confirm Action Modal -->
+<div class="modal fade" id="confirmActionModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow-sm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="confirmModalLabel">Please Confirm</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="confirmModalBody">
+          <!-- 动态插入内容 -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="confirmActionBtn" type="button" class="btn btn-danger">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+<script>
+    function confirmAction(action, bookingId) {
+      const modal = new bootstrap.Modal(document.getElementById("confirmActionModal"));
+      const body = document.getElementById("confirmModalBody");
+      const confirmBtn = document.getElementById("confirmActionBtn");
+  
+      // 设置提示内容
+      if (action === "pay") {
+        body.innerHTML = `Are you sure you want to proceed with payment for booking <strong>#${bookingId}</strong>?`;
+        confirmBtn.className = "btn btn-success";
+      } else if (action === "cancel") {
+        body.innerHTML = `Are you sure you want to cancel booking <strong>#${bookingId}</strong>?`;
+        confirmBtn.className = "btn btn-danger";
+      }
+  
+      // 绑定确认按钮逻辑
+      confirmBtn.onclick = async () => {
+        const res = await fetch(`/service/${action}/${bookingId}/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")?.value,
+          },
+        });
+  
+        const data = await res.json();
+        if (data.success) {
+          alert(`${action === 'pay' ? "Payment" : "Cancellation"} successful`);
+          window.location.reload();
+        } else {
+          alert("Operation failed: " + (data.error || "Unknown error"));
+        }
+      };
+  
+      modal.show();
+    }
+  </script>
+  
+</html>

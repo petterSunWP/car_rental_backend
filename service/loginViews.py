@@ -8,6 +8,7 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth import login
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.hashers import check_password
+from django.shortcuts import redirect
 
 @csrf_exempt
 def login_api(request):
@@ -60,3 +61,9 @@ def register_api(request):
 def check_auth(request):
     is_logged_in = bool(request.session.get("user_id"))
     return JsonResponse({"is_authenticated": is_logged_in})
+
+
+
+def logout_view(request):
+    request.session.flush()  # 清除所有登录信息
+    return redirect("/service")     # 回到首页
